@@ -1,0 +1,183 @@
+---
+title: "EDA - Global Automation Atlas (country x occupation)"
+author: "Grupo CDD - FCE UBA"
+date: "`r Sys.Date()`"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## 0. Objetivo
+
+Este script realiza el Análisis Exploratorio de Datos (EDA) de la base
+`country_occupation_panel.parquet`, del proyecto Global Automation Atlas
+(Garg, Crosta & Baier, 2026), como insumo para la Instancia 1 del TP.
+
+```{r libs}
+library(arrow)
+library(tidyverse)
+library(janitor)
+library(skimr)
+```
+
+## 1. Presentación de la base
+
+```{r load}
+occ <- read_parquet("../datos/country_occupation_panel.parquet")
+
+dim(occ)
+glimpse(occ)
+```
+
+- **Fuente**: Global Automation Atlas (Garg, Crosta & Baier, 2026),
+  repo `prashgarg/global-automation-atlas`.
+- **Fenómeno / población**: exposición de ocupaciones (clasificación O*NET-SOC)
+  a la automatización (sustitución vs. aumentación de tareas), replicado
+  para cada país.
+- **Unidad de observación**: una ocupación O*NET dentro de un país
+  (par país x ocupación).
+- **Observaciones**: `r nrow(occ)` filas.
+- **Período**: snapshot (no tiene dimensión temporal).
+
+## 2. Descripción de las variables
+
+```{r nulos}
+# Chequeo de valores nulos por columna
+colSums(is.na(occ))
+```
+
+```{r skim}
+skim(occ)
+```
+
+Se deriva el **grupo ocupacional SOC (2 dígitos)** a partir del código
+O*NET, para tener una variable categórica agregada y manejable
+(22 categorías en vez de 923 ocupaciones puntuales):
+
+```{r soc_group}
+# Los primeros 2 dígitos del código O*NET-SOC (ej. "11-1011.00" -> "11")
+# identifican el "grupo mayor" SOC 2018 (ej. 11 = Management, 51 = Production)
+soc_labels <- tibble::tribble(
+  ~soc_major_group, ~soc_label,
+  "11", "Management",
+  "13", "Business & Financial",
+  "15", "Computer & Mathematical",
+  "17", "Architecture & Engineering",
+  "19", "Life, Physical & Social Science",
+  "21", "Community & Social Service",
+  "23", "Legal",
+  "25", "Education",
+  "27", "Arts, Design, Media",
+  "29", "Healthcare Practitioners",
+  "31", "Healthcare Support",
+  "33", "Protective Service",
+  "35", "Food Preparation & Serving",
+  "37", "Building & Grounds Maintenance",
+  "39", "Personal Care & Service",
+  "41", "Sales",
+  "43", "Office & Administrative Support",
+  "45", "Farming, Fishing & Forestry",
+  "47", "Construction & Extraction",
+  "49", "Installation, Maintenance & Repair",
+  "51", "Production",
+  "53", "Transportation & Material Moving"
+)
+
+occ <- occ %>%
+  mutate(soc_major_group = str_sub(onet_soc_code, 1, 2)) %>%
+  left_join(soc_labels, by = "soc_major_group")
+
+occ %>% count(soc_label, sort = TRUE)
+```
+
+## 3. Exploración de los datos
+
+### 3.1 Estadísticas descriptivas generales
+
+```{r stats}
+occ %>%
+  summarise(across(
+    c(mean_exposure, substitution_share, augmentation_share, task_count),
+    list(media = mean, mediana = median, sd = sd, min = min, max = max),
+    .names = "{.col}_{.fn}"
+  )) %>%
+  pivot_longer(everything())
+```
+
+### 3.2 Distribución de la exposición media
+
+```{r hist_exposure}
+ggplot(occ, aes(x = mean_exposure)) +
+  geom_histogram(bins = 40) +
+  labs(
+    title = "Distribución de la exposición media a la automatización",
+    x = "mean_exposure", y = "Frecuencia"
+  )
+```
+
+### 3.3 Exposición por grupo ocupacional (SOC)
+
+```{r boxplot_soc, fig.height=7, fig.width=9}
+occ %>%
+  mutate(soc_label = fct_reorder(soc_label, mean_exposure, .fun = median)) %>%
+  ggplot(aes(x = mean_exposure, y = soc_label)) +
+  geom_boxplot() +
+  labs(
+    title = "Exposición a la automatización por grupo ocupacional (SOC)",
+    x = "mean_exposure", y = NULL
+  )
+```
+
+### 3.4 Sustitución vs. aumentación
+
+```{r scatter_sub_aug}
+ggplot(occ, aes(x = substitution_share, y = augmentation_share)) +
+  geom_point(alpha = 0.15) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(
+    title = "Relación entre share de sustitución y de aumentación",
+    x = "substitution_share", y = "augmentation_share"
+  )
+
+cor(occ$substitution_share, occ$augmentation_share)
+```
+
+### 3.5 Ocupaciones más y menos expuestas
+
+```{r top_bottom}
+occ %>%
+  group_by(occupation_title) %>%
+  summarise(mean_exposure = mean(mean_exposure), .groups = "drop") %>%
+  slice_max(mean_exposure, n = 10)
+
+occ %>%
+  group_by(occupation_title) %>%
+  summarise(mean_exposure = mean(mean_exposure), .groups = "drop") %>%
+  slice_min(mean_exposure, n = 10)
+```
+
+## 4. Primeros hallazgos
+
+1. La base **no tiene valores nulos** en ninguna de sus 12 columnas.
+2. La distribución de `mean_exposure` presenta **asimetría hacia la
+   derecha** (media 1.16 > mediana ~1.14, con máximo en 3), sugiriendo
+   que la mayoría de las ocupaciones tiene exposición moderada, pero
+   existe una cola de ocupaciones con exposición muy alta.
+3. Existe una **correlación negativa moderada (-0.22)** entre
+   `substitution_share` y `augmentation_share`: las ocupaciones tienden
+   a diferenciarse entre las que la IA principalmente *sustituye* y las
+   que principalmente *aumenta*, más que combinar ambas por igual.
+4. Se observan **diferencias marcadas entre grupos SOC** en el nivel de
+   exposición media (a completar con la lectura del boxplot una vez
+   ejecutado).
+5. La base cubre 124 países y 923 ocupaciones O*NET, lo que permite
+   tanto comparaciones entre países como entre ocupaciones.
+
+**Preguntas para las próximas etapas:**
+
+- ¿Cómo se relaciona la exposición a la automatización con los **salarios**
+  por ocupación? (requiere incorporar datos de ingresos de ILOSTAT).
+- ¿La relación entre exposición y salario depende del **nivel de ingreso
+  del país** (`income_level`, disponible en `country_map_panel.csv`)?
