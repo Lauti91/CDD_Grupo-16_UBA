@@ -186,3 +186,31 @@ occ %>%
 #   ILOSTAT + un crosswalk O*NET-SOC -> ISCO-08, ya que ILOSTAT
 #   reporta por ISCO y esta base usa códigos O*NET-SOC)
 # - ¿La relación exposición-salario depende del income_level del país?
+
+
+## 3.6 Correlograma de variables numéricas
+vars_corr <- occ %>%
+  select(mean_exposure, task_count, sub_only_share, both_share, aug_only_share)
+
+matriz_cor <- cor(vars_corr)
+round(matriz_cor, 2)
+
+matriz_cor_long <- as.data.frame(matriz_cor) %>%
+  rownames_to_column("var1") %>%
+  pivot_longer(-var1, names_to = "var2", values_to = "correlacion")
+
+ggplot(matriz_cor_long, aes(x = var1, y = var2, fill = correlacion)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = round(correlacion, 2)), size = 3) +
+  scale_fill_gradient2(
+    low = "#B2182B", mid = "white", high = "#2166AC",
+    midpoint = 0, limits = c(-1, 1)
+  ) +
+  labs(
+    title = "Correlograma - variables numéricas del panel país-ocupación",
+    x = NULL, y = NULL
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggsave("output/correlograma_variables.png", width = 7, height = 6)
