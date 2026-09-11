@@ -1,5 +1,7 @@
 getwd()
 setwd("C:/Users/admin/Desktop/CDD_Grupo-_UBA/datos")
+setwd("/cloud/project/datos")
+
 
 install.packages(tidyverse)
 
