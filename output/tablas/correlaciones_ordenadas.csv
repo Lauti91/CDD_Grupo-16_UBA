@@ -1,0 +1,11 @@
+par,r
+mean_exposure - sub_only_share,0.72
+both_share - mean_exposure,0.67
+aug_only_share - both_share,0.26
+aug_only_share - sub_only_share,-0.22
+aug_only_share - mean_exposure,0.19
+sub_only_share - task_count,-0.12
+aug_only_share - task_count,0.09
+both_share - sub_only_share,0.06
+mean_exposure - task_count,-0.06
+both_share - task_count,0.02
