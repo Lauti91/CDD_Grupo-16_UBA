@@ -1,7 +1,7 @@
 # ==============================================================
 # 01 - Faltantes, outliers y limpieza de la base
 # Diagnostica faltantes y atípicos, aplica el criterio de limpieza y guarda las bases para el análisis.
-# Lee:   raw/country_occupation_panel.csv, auxiliar/country_map_panel.csv, auxiliar/grupos_ocupacionales.csv
+# Lee:   raw/country_occupation_panel.parquet, auxiliar/country_map_panel.csv, auxiliar/grupos_ocupacionales.csv
 # Guarda: input/panel_analisis.csv, input/paises_analisis.csv, output/tablas/faltantes_por_variable.csv,
 #         output/tablas/outliers_tukey_por_grupo.csv, output/tablas/limpieza_antes_despues.csv,
 #         output/graficos/disp.png (diapositiva 7)
