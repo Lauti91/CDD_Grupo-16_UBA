@@ -1,0 +1,23 @@
+soc_major,nombre_es,nombre_en
+11,Gerencia y dirección,Management
+13,Negocios y finanzas,Business & Financial
+15,Informática y matemática,Computer & Mathematical
+17,Arquitectura e ingeniería,Architecture & Engineering
+19,Ciencias naturales y sociales,"Life, Physical & Social Science"
+21,Servicio social y comunitario,Community & Social Service
+23,Legales,Legal
+25,Educación,Education
+27,"Arte, diseño y medios","Arts, Design, Media"
+29,Profesionales de la salud,Healthcare Practitioners
+31,Asistencia sanitaria,Healthcare Support
+33,Seguridad y protección,Protective Service
+35,Gastronomía,Food Preparation & Serving
+37,Limpieza y mantenimiento de edificios,Building & Grounds Maintenance
+39,Cuidado y servicios personales,Personal Care & Service
+41,Ventas,Sales
+43,Apoyo administrativo y de oficina,Office & Administrative Support
+45,"Agro, pesca y forestal","Farming, Fishing & Forestry"
+47,Construcción y extracción,Construction & Extraction
+49,Instalación y reparación,"Installation, Maintenance & Repair"
+51,Producción industrial,Production
+53,Transporte y logística,Transportation & Material Moving
