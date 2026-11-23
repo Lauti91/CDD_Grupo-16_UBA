@@ -101,22 +101,32 @@ atlas_ia_grupo16/
 
 ## 6. Instrucciones de reproducción
 
-**Paso 1 · Instalar los paquetes** (R 4.3 o posterior). `script/00_correr_todo.R` instala solo los que falten antes de correr los scripts. Para instalarlos a mano, una sola vez:
+**Paso 1 · Instalar R y RStudio.** R 4.3 o posterior ([CRAN](https://cran.r-project.org/)) y [RStudio](https://posit.co/download/rstudio-desktop/). No hace falta instalar nada más a mano: ni paquetes ni la fuente de los gráficos.
 
-```r
-install.packages(c("here", "arrow", "tidyverse", "FactoMineR", "ggrepel", "cluster", "patchwork",
-                   "scales", "sandwich", "lmtest", "ragg", "systemfonts"))
-```
+**Paso 2 · Descargar el repositorio completo.** Dos opciones:
 
-**Paso 2 · Abrir el proyecto.** Abrir `atlas_ia_grupo16.Rproj` en RStudio. Las rutas son relativas a la raíz del proyecto (con `here()`); no hay `setwd()` ni rutas absolutas.
+- Desde GitHub: botón verde **Code** → **Download ZIP**, y descomprimir el archivo.
+- Con Git:
 
-**Paso 3 · Correr los scripts.** Todos juntos con:
+  ```bash
+  git clone https://github.com/Lauti91/CDD_Grupo-_UBA.git
+  ```
+
+Se necesitan todas las carpetas (`raw/`, `auxiliar/`, `script/`, `utils/`), no solo los scripts.
+
+**Paso 3 · Abrir el proyecto.** Doble clic en `atlas_ia_grupo16.Rproj` (o en RStudio: **File → Open Project**). RStudio toma esa carpeta como raíz y todas las rutas son relativas a ella (con `here()`); no hay `setwd()` ni rutas absolutas, así que el nombre de la carpeta no importa.
+
+**Paso 4 · Correr todo.** En la consola de RStudio:
 
 ```r
 source("script/00_correr_todo.R")
 ```
 
-o uno por uno, en orden. Cada script es autónomo: lee lo que dejó guardado el anterior en `input/`, así que también se puede correr uno solo una vez que esos archivos existen.
+La primera vez instala los paquetes que falten (requiere internet y tarda unos minutos): `here`, `arrow`, `tidyverse`, `FactoMineR`, `ggrepel`, `cluster`, `patchwork`, `scales`, `sandwich`, `lmtest`, `ragg` y `systemfonts`. Después corre los scripts 01 a 08 en orden.
+
+**Paso 5 · Verificar.** La corrida termina con el mensaje `Listo: gráficos en output/graficos/ y tablas en output/tablas/`. Quedan regenerados los 3 archivos de `input/`, las 18 tablas de `output/tablas/` y los 15 gráficos de `output/graficos/`.
+
+Cada script también se puede correr solo, en orden: lee lo que dejó guardado el anterior en `input/`.
 
 > ⚠️ **Versión de FactoMineR.** La partición de países en tres tramos (23 / 33 / 68) se verificó con **FactoMineR 2.9 y 2.18**. Las versiones recientes calculan el ACP con un método aproximado que en matrices chicas puede no converger; por eso el script 04 usa `pca_exacta()`, que fuerza la SVD exacta. Si con otra versión la partición no coincide, el script 04 se detiene con un mensaje.
 >
@@ -129,7 +139,7 @@ o uno por uno, en orden. Cada script es autónomo: lee lo que dejó guardado el 
 | 00 | `00_correr_todo.R` | Corre los ocho scripts en orden | — | — |
 | 01 | `01_limpieza_faltantes_outliers.R` | Diagnóstico de faltantes y atípicos, decisión de limpieza, descriptivas antes y después | `raw/`, `auxiliar/` | `input/panel_analisis.csv`, `input/paises_analisis.csv` · `disp.png` · 4 tablas |
 | 02 | `02_descriptivas.R` | Histograma, exposición por grupo ocupacional, correlograma (Pearson frente a Spearman), tablas descriptivas | `input/panel_analisis.csv` | `hist.png`, `barras.png`, `corr.png` · 3 tablas |
-| 03 | `03_anova_pais_ocupacion.R` | **Método 1.** ANOVA de dos factores (η²) y supuestos (Shapiro-Wilk, Fligner-Killeen, Welch, Kruskal-Wallis) | `input/panel_analisis.csv` | `eta2.png`, `qq.png` · 2 tablas |
+| 03 | `03_anova_pais_ocupacion.R` | **Método 1.** ANOVA de dos factores (η²) y supuestos (Shapiro-Wilk, Fligner-Killeen, Welch, Kruskal-Wallis) | `input/panel_analisis.csv`, `input/paises_analisis.csv` | `eta2.png`, `qq.png` · 2 tablas |
 | 04 | `04_hcpc_tramos_paises.R` | **Método 2.** ACP + HCPC (k = 3), validación, sensibilidad de k y HCPC por composición | `input/paises_analisis.csv` | `input/paises_tramos.csv` · `kdendro.png`, `mapa.png`, `fronteras.png`, `robust.png`, `compos.png` · 3 tablas |
 | 05 | `05_kruskal_chi2_tramos_ingreso.R` | **Método 3.** Kruskal-Wallis y χ² de los tramos contra el ingreso | `input/paises_*.csv` | `ingreso.png` · 1 tabla |
 | 06 | `06_grafico_exploratorio_nivel_y_tipo.R` | Gráfico exploratorio (instancia 3) | `input/paises_*.csv` | `expl.png` · 1 tabla |
