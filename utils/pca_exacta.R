@@ -1,12 +1,8 @@
 # --------------------------------------------------------------
 # pca_exacta(): ACP de FactoMineR calculado siempre con la SVD exacta
-# En las versiones recientes de FactoMineR (posteriores a la 2.9), PCA() usa un
-# método aproximado (irlba, que arranca desde un vector al azar) cuando se piden
-# menos dimensiones que la mitad de las variables. Con matrices chicas como la
-# nuestra (124 x 7) puede no converger y dar coordenadas algo distintas según la
-# computadora. Para que el resultado no dependa de la versión ni de la máquina, se
-# calcula el ACP con todas las dimensiones (SVD exacta) y se conservan las ncp primeras.
-# HCPC() agrupa con todas las columnas de ind$coord, por eso se recortan.
+# FactoMineR > 2.9 usa irlba (aproximado) si ncp < la mitad de las variables; con 124 x 7 puede no converger
+# Solución: todas las dimensiones (SVD exacta) y recorte a ncp
+# Se recorta ind$coord porque HCPC() usa todas sus columnas
 # --------------------------------------------------------------
 pca_exacta <- function(datos, ncp) {
   res <- FactoMineR::PCA(datos, scale.unit = TRUE, ncp = ncol(datos), graph = FALSE)

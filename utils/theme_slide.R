@@ -1,7 +1,7 @@
 # ==============================================================
 # theme_slide(): tema ggplot para los gráficos de la presentación
 # ==============================================================
-# Requiere haber cargado utils/configuracion_graficos.R (paleta y fuente).
+# Requiere utils/configuracion_graficos.R
 
 theme_slide <- function(t_axtitle = 18, t_axtext = 16) {
   theme_minimal(base_family = fam) +

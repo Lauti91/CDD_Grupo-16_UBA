@@ -1,12 +1,10 @@
 # ==============================================================
-# guardar_png(): agrega título, subtítulo, fuente y nota al pie al gráfico y lo exporta
-# con ggsave() a output/graficos/ (PNG, 300 dpi)
+# guardar_png(): título, subtítulo, fuente y nota; PNG a 300 dpi en output/graficos/
 # ==============================================================
-# ancho, alto: tamaño (pulgadas) con que el gráfico queda en la diapositiva.
-# k: factor de tamaño del lienzo (el PNG mide ancho*k x alto*k); con k > 1 las letras, que están
-#    dimensionadas para gráficos más grandes, quedan en la diapositiva más chicas (1/k) y con k < 1, más grandes.
-# Los textos de título, subtítulo y fuente se dimensionan para leerse a 14 / 10,5 / 10 puntos en la diapositiva.
-# Requiere haber cargado utils/configuracion_graficos.R (paleta, fuente y `fuente`).
+# ancho, alto: tamaño en la diapositiva (pulgadas)
+# k: escala del lienzo (PNG de ancho*k x alto*k); k > 1 achica las letras, k < 1 las agranda
+# Título / subtítulo / fuente: 14 / 10,5 / 10 pt en la diapositiva
+# Requiere utils/configuracion_graficos.R
 
 guardar_png <- function(p, nombre, ancho, alto, k = 1, titulo = NULL, subtitulo = NULL, nota = NULL,
                         bg = color_fondo_claro) {

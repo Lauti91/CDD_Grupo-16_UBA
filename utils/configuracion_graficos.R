@@ -1,16 +1,12 @@
 # ==============================================================
 # Configuración común de los gráficos: fuente Rajdhani, paleta y textos fijos
 # ==============================================================
-# No es una función: define constantes (colores, nombres de niveles). Se carga con
-#   source(here::here("utils", "configuracion_graficos.R"))
-# La fuente Rajdhani se toma de la computadora o, si no está instalada, de auxiliar/fuentes/
+# Solo constantes (no es una función)
 
 # --------------------------------------------------------------
-# Fuente Rajdhani (la de las entregas anteriores)
+# Fuente Rajdhani
 # --------------------------------------------------------------
-# Si Rajdhani no está instalada en la computadora, se registra para esta sesión de R desde
-# auxiliar/fuentes/ (licencia SIL Open Font License, en OFL.txt): no hace falta instalar nada y los
-# gráficos salen iguales en cualquier máquina. ragg (el dispositivo de guardar_png) usa ese registro.
+# Si no está instalada: se registra desde auxiliar/fuentes/ (licencia OFL); ragg usa ese registro
 fam <- "sans"
 if (requireNamespace("systemfonts", quietly = TRUE)) {
   instalada  <- "Rajdhani" %in% systemfonts::system_fonts()$family
@@ -26,7 +22,7 @@ if (requireNamespace("systemfonts", quietly = TRUE)) {
 }
 
 # --------------------------------------------------------------
-# Paleta (la de la Instancia 1)
+# Paleta
 # --------------------------------------------------------------
 color_fondo_claro <- "#F7F8FA"
 color_azul_marino <- "#0B1E3D"
@@ -53,6 +49,6 @@ niv_ing <- names(col_ing)
 fuente <- "Fuente: elaboración propia en base a Global Automation Atlas (Garg, Crosta y Baier, 2026)."
 
 # --------------------------------------------------------------
-# Formato en castellano: coma decimal y punto de miles en los ejes y rótulos
+# Coma decimal en ejes y rótulos
 # --------------------------------------------------------------
 options(OutDec = ",")
