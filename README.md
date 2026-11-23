@@ -57,6 +57,7 @@ Estudiar cómo se expone el trabajo de **124 países** a la inteligencia artific
 | **Tamaño** | 114.452 filas = 124 países × 923 ocupaciones · 12 variables · sin faltantes ni duplicados |
 | **Período** | Una sola foto: estimaciones para 2026 (sin dimensión temporal) |
 | **Limitaciones** | No es automatización observada. Cada ocupación pesa igual (no se pondera por empleo). La escala (0 a 3) tiene piso y techo. |
+| **Por qué esta base** | Mide la exposición con un mismo método para 124 países y 923 ocupaciones, en el contexto de cada país. La elegimos para cruzarla con salarios (ILOSTAT); como ese cruce no llegó a hacerse, el trabajo se centra en el ingreso de cada país. |
 
 ## 4. Descripción del análisis
 
