@@ -1,12 +1,10 @@
 # ==============================================================
 # 00 - Correr todo el proyecto en orden
-# Cada script es autónomo (lee lo que dejó guardado el anterior), así que también
-# se puede correr uno solo. Abrir antes el .Rproj (o confiar en here()).
+# Cada script también corre solo
 # ==============================================================
 
-# ---- Paquetes: se instalan solo los que falten (la primera vez) ----
-# Son todos los que usan los scripts 01 a 08 y las funciones de utils/
-# (tidyverse incluye dplyr, ggplot2, readr, stringr y tibble).
+# ---- Paquetes: instala los que falten ----
+# Todos los de 01 a 08 y utils/ (tidyverse incluye dplyr, ggplot2, readr, stringr, tibble)
 paquetes <- c("here", "arrow", "tidyverse", "FactoMineR", "ggrepel", "cluster", "patchwork",
               "scales", "sandwich", "lmtest", "ragg", "systemfonts")
 faltan <- paquetes[!vapply(paquetes, requireNamespace, logical(1), quietly = TRUE)]

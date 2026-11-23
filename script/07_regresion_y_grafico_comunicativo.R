@@ -1,7 +1,7 @@
 # ==============================================================
 # 07 - Método 4: regresión lineal (errores HC3) y gráfico comunicativo (instancia 3)
-# Países con clasificación de ingreso y al menos 40% de tareas expuestas.
-# Lee:   input/paises_analisis.csv, input/paises_tramos.csv
+# Países con ingreso clasificado y >= 40% de tareas expuestas
+# Lee:   input/paises_analisis.csv, input/paises_tramos.csv, auxiliar/nombres_paises_es.csv
 # Guarda: output/tablas/regresion_modelos.csv, regresion_sensibilidad.csv; output/graficos/comu.png
 # ==============================================================
 library(here)
@@ -22,11 +22,11 @@ source(here("utils", "guardar_png.R"))
 source(here("utils", "leer_paises_con_tramos.R"))
 source(here("utils", "nombre_es.R"))
 
-# ---- Entradas: input/paises_analisis.csv (script 01) e input/paises_tramos.csv (script 04) ----
+# ---- Entradas (scripts 01 y 04) ----
 paises <- leer_paises_con_tramos()
 paises_ing <- filter(paises, !sin_clasif)      # 122 países con clasificación de ingreso
 
-# ---- Gráfico comunicativo (instancia 3) y regresión con errores HC3 (diapositivas 17 y 18) ----
+# ---- Regresión con errores HC3 y gráfico comunicativo (comu.png) ----
 umbral <- 0.40
 d <- paises_ing %>% filter(expuestas >= umbral) %>% mutate(etq = nombre_es(iso3, country_name))
 m1 <- lm(expuestas ~ log(gdp_per_capita), d)
@@ -38,7 +38,7 @@ tab_reg <- bind_rows(
   tibble(modelo = "2 · log(razón reemplazo / asistencia)", n = nobs(m2), pendiente = coef(m2)[2], ee_hc3 = hc(m2)[2, 2], p = hc(m2)[2, 4], r2 = r2_tipo))
 write_csv(tab_reg, here("output", "tablas", "regresion_modelos.csv")); print(tab_reg)
 
-# Versión comunicativa: pocos casos destacados (India, Argentina, Costa Rica, EE. UU.) y el resto en gris
+# Versión comunicativa: 4 casos destacados, resto en gris
 casos <- c("IND", "ARG", "CRI", "USA")
 gris_pt <- "#C3C9D2"
 tema_c <- function() theme_minimal(base_family = fam, base_size = 10) +
@@ -46,9 +46,9 @@ tema_c <- function() theme_minimal(base_family = fam, base_size = 10) +
         panel.grid.minor = element_blank(), panel.grid.major = element_line(color = grilla, linewidth = 0.3),
         plot.title = element_text(size = 12.5, face = "bold", color = navy), plot.margin = margin(4, 8, 4, 4))
 base_c3 <- function(y, ylab, ttl, nota_panel, ybreaks, ylabels, ylog = FALSE, pos, ypx) {
-  # pos: posición manual de cada rótulo (iso3, lx, ly), para que no tape puntos ni la recta
+  # pos: posición manual de cada rótulo (iso3, lx, ly)
   dc <- inner_join(filter(d, iso3 %in% casos), pos, by = "iso3")
-  # la línea termina en el borde del rótulo (no en su centro); ypx = unidades de y por píxel (en log10 si ylog)
+  # Línea hasta el borde del rótulo; ypx = unidades de y por píxel (log10 si ylog)
   fy <- if (ylog) log10 else identity; fyi <- if (ylog) function(v) 10^v else identity
   dc <- dc %>% mutate(
     dx = (log10(gdp_per_capita) - log10(lx)), dy = fy(.data[[y]]) - fy(ly),
@@ -82,7 +82,7 @@ guardar_png(p, "comu.png", ancho = 8.9, alto = 4.95, k = 0.9, bg = "white",
             nota = "Reemplazar = solo sustitución + ambas; solo asistir = solo aumentación. Se excluyen los países con menos de 40% de tareas expuestas, donde casi no hay asistencia pura.")
 cat(sprintf("n = %d países | R2 nivel = %.3f | R2 tipo = %.4f\n", nrow(d), r2_nivel, r2_tipo))
 
-# ---- Supuestos y sensibilidad de la regresión (diapositiva 17 y anexo A6) ----
+# ---- Supuestos y sensibilidad de la regresión (tabla regresion_sensibilidad.csv) ----
 datos_reg <- function(base, umbral = 0.40) base %>% filter(expuestas >= umbral)
 ajustar <- function(d) {
   m1 <- lm(expuestas ~ log(gdp_per_capita), d); m2 <- lm(log(ratio) ~ log(gdp_per_capita), d)
@@ -111,7 +111,7 @@ write_csv(tibble(
   r2 = c(summary(f$m1)$r.squared, summary(f$m2)$r.squared, summary(f$m3)$r.squared, summary(fc$m1)$r.squared, summary(fc$m2)$r.squared),
   pendiente = c(coef(f$m1)[2], coef(f$m2)[2], coef(f$m3)[2], NA, NA),
   p = c(f$hc1[2, 4], f$hc2[2, 4], f$hc3[2, 4], NA, NA)), here("output", "tablas", "regresion_sensibilidad.csv"))
-# efecto de duplicar el PBI per cápita (modelo 1)
+# Efecto de duplicar el PBI per cápita (modelo 1)
 cat(sprintf("Duplicar el PBI: %+.1f puntos de tareas expuestas\n", 100 * coef(f$m1)[2] * log(2)))
 
 

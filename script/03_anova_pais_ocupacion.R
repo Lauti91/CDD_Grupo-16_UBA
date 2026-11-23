@@ -1,6 +1,6 @@
 # ==============================================================
 # 03 - Método 1: ANOVA (cuánto explican el país y la ocupación)
-# Lee:   input/panel_analisis.csv
+# Lee:   input/panel_analisis.csv, input/paises_analisis.csv
 # Guarda: output/tablas/anova_eta2.csv, anova_supuestos.csv; output/graficos/eta2.png, qq.png
 # ==============================================================
 library(here)
@@ -16,12 +16,13 @@ source(here("utils", "theme_panel.R"))
 source(here("utils", "unir.R"))
 source(here("utils", "guardar_png.R"))
 
-# ---- Entradas: guardadas por 01_limpieza_faltantes_outliers.R ----
+# ---- Entradas (script 01) ----
 panel <- read_csv(here("input", "panel_analisis.csv"), show_col_types = FALSE,
                   col_types = cols(soc_major = col_character()))
+paises <- read_csv(here("input", "paises_analisis.csv"), show_col_types = FALSE)
 
 # ---- ANOVA de dos factores sin réplica: eta cuadrado por sumas de cuadrados ----
-# Diseño balanceado 124 países x 923 ocupaciones (una observación por celda).
+# Diseño balanceado 124 x 923, una observación por celda
 M <- panel %>% select(iso3, onet_soc_code, mean_exposure) %>%
   pivot_wider(names_from = onet_soc_code, values_from = mean_exposure) %>%
   as.data.frame() %>% column_to_rownames("iso3") %>% as.matrix()
@@ -41,7 +42,7 @@ curtosis_exceso <- mean((r - mean(r))^4) / m2^2 - 3
 sd_res_pais <- apply(R, 1, sd); razon_sd <- max(sd_res_pais) / min(sd_res_pais)
 set.seed(123); res_muestra <- sample(r, 5000)
 
-# ---- Eta cuadrado (diapositiva 10) ----
+# ---- Eta cuadrado (eta2.png) ----
 tab_eta <- tibble(
   fuente = c("Grupo mayor SOC (22)", "País (124)", "Ocupación O*NET (923)",
              "País + ocupación (aditivo)", "Residual (interacción + error)"),
@@ -64,7 +65,7 @@ guardar_png(p, "eta2.png", ancho = 8.1, alto = 4.88, k = 1.45,
             subtitulo = "Proporción de la varianza de la exposición media que explica cada factor (eta cuadrado). ANOVA de dos factores, 124 países × 923 ocupaciones.",
             nota = "País y ocupación suman porque el diseño es balanceado; el residuo reúne la interacción y el error. El grupo SOC se muestra como referencia.")
 
-# ---- Supuestos: residuos del modelo aditivo (diapositiva 11) ----
+# ---- Supuestos: residuos del modelo aditivo (qq.png) ----
 dat <- tibble(res = res_muestra)
 p_qq <- ggplot(dat, aes(sample = res)) +
   stat_qq(color = navy, alpha = 0.35, size = 1.3) + stat_qq_line(color = naranja, linewidth = 1.2) +
@@ -77,15 +78,17 @@ guardar_png(unir(p_qq + p_hist), "qq.png", ancho = 8.1, alto = 4.88, k = 1.25,
             titulo = "Supuestos del ANOVA: normalidad de los residuos",
             subtitulo = "Residuos del modelo aditivo país + ocupación. Naranja: referencia normal (recta a la izquierda, densidad a la derecha).",
             nota = "Muestra aleatoria de 5.000 residuos (semilla 123) para el gráfico Q-Q y el histograma.")
-cat(sprintf("asimetría %.2f | curtosis en exceso %.2f | razón de desvíos %.2f (mín %s, máx %s)\n",
+cat(sprintf("asimetría %.2f | curtosis en exceso %.2f | razón de desvíos %.2f (mín %s %.3f, máx %s %.3f)\n",
             asimetria, curtosis_exceso, razon_sd,
-            names(which.min(sd_res_pais)), names(which.max(sd_res_pais))))
+            names(which.min(sd_res_pais)), min(sd_res_pais), names(which.max(sd_res_pais)), max(sd_res_pais)))
+# Spearman: desvío del residuo por país vs. log PBI
+cat(sprintf("Spearman entre el desvío del residuo por país y el log del PBI: %.2f\n",
+            cor(sd_res_pais, paises$log_gdp_pc[match(names(sd_res_pais), paises$iso3)], method = "spearman", use = "complete.obs")))
 
-# ---- Supuestos y alternativas robustas (diapositiva 11 y anexo A6) ----
-# Shapiro-Wilk sobre la muestra de 5.000 residuos (el test admite hasta 5.000).
-# Fligner-Killeen: homogeneidad de varianzas entre países (no supone normalidad).
-# Welch (sin suponer varianzas iguales) y Kruskal-Wallis (por rangos) contrastan el efecto país:
-# si coinciden con el ANOVA clásico, la desigualdad de varianzas no cambia la conclusión.
+# ---- Supuestos y alternativas robustas (tabla anova_supuestos.csv) ----
+# Shapiro-Wilk: muestra de 5.000 residuos (máximo del test)
+# Fligner-Killeen: varianzas entre países
+# Welch y Kruskal-Wallis: efecto país sin suponer varianzas iguales
 sh  <- shapiro.test(res_muestra)
 fk  <- fligner.test(mean_exposure ~ iso3, data = panel)
 wel <- oneway.test(mean_exposure ~ iso3, data = panel, var.equal = FALSE)

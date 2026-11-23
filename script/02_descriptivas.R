@@ -17,13 +17,13 @@ source(here("utils", "unir.R"))
 source(here("utils", "guardar_png.R"))
 source(here("utils", "cargar_nombres_soc.R"))
 
-# ---- Entradas: guardadas por 01_limpieza_faltantes_outliers.R ----
+# ---- Entradas (script 01) ----
 panel <- read_csv(here("input", "panel_analisis.csv"), show_col_types = FALSE,
                   col_types = cols(soc_major = col_character()))
 
 soc_nombre <- cargar_nombres_soc("es")
 
-# ---- Histograma (diapositiva 5) ----
+# ---- Histograma de la exposición (hist.png) ----
 media <- mean(panel$mean_exposure)
 p <- ggplot(panel, aes(mean_exposure)) +
   geom_histogram(bins = 42, fill = navy, color = color_fondo_claro, linewidth = 0.6) +
@@ -39,7 +39,7 @@ guardar_png(p, "hist.png", ancho = 6.2, alto = 3.2, k = 1.25,
             nota = paste0("Exposición media (escala 0 a 3) de cada par país × ocupación (n = ", coma(nrow(panel), 0),
                           "). La exposición la estima un modelo de lenguaje por tarea."))
 
-# ---- Exposición media por grupo ocupacional (diapositiva 5) ----
+# ---- Exposición media por grupo ocupacional (barras.png) ----
 d <- panel %>% group_by(soc_major) %>% summarise(m = mean(mean_exposure), .groups = "drop") %>%
   mutate(grupo = soc_nombre[soc_major]) %>% arrange(m) %>% mutate(grupo = factor(grupo, levels = grupo))
 p <- ggplot(d, aes(m, grupo)) +
@@ -53,7 +53,7 @@ guardar_png(p, "barras.png", ancho = 5.73, alto = 5.0, k = 1.1,
             titulo = "Exposición por grupo ocupacional",
             nota = "Exposición media (escala 0 a 3) por grupo SOC, con los 124 países. Promedio simple de ocupaciones O*NET, sin ponderar por empleo.")
 
-# ---- Correlograma (anexo A2) ----
+# ---- Correlograma (corr.png) ----
 vars <- c("aug_only_share", "both_share", "mean_exposure", "sub_only_share", "task_count")
 etq_vars <- c(aug_only_share = "Solo aumentación", both_share = "Ambas", mean_exposure = "Exposición media",
               sub_only_share = "Solo sustitución", task_count = "Cantidad de tareas")
@@ -78,7 +78,7 @@ guardar_png(p, "corr.png", ancho = 8.1, alto = 4.88, k = 1.15,
             subtitulo = paste0("Correlación de Pearson en el panel país × ocupación (n = ", coma(nrow(panel), 0), ")."),
             nota = "Solo aumentación, Ambas y Solo sustitución: proporción de las tareas de la ocupación en cada categoría; Exposición media: de 0 a 3.")
 
-# ---- Tablas descriptivas del anexo A1 (panel completo, antes de limpiar) ----
+# ---- Tablas descriptivas (panel completo) ----
 vars <- c("mean_exposure", "sub_only_share", "both_share", "aug_only_share", "neither_share", "task_count")
 dv <- map_dfr(vars, function(v) { x <- panel[[v]]
   tibble(variable = v, media = mean(x), mediana = median(x), desvio = sd(x), min = min(x), max = max(x), cv = sd(x) / mean(x)) })
@@ -87,9 +87,9 @@ tr <- panel %>% mutate(nivel = cut(mean_exposure, c(-Inf, 0.75, 1.5, Inf), label
   count(nivel) %>% mutate(pct = 100 * n / sum(n))
 write_csv(tr, here("output", "tablas", "descriptivas_tramos_expo.csv")); print(as.data.frame(tr))
 
-# ---- Pearson frente a Spearman (anexo A2) ----
-# Las variables son proporciones acotadas: si Pearson y Spearman difieren poco, no hay no linealidad relevante.
-# Mismas 5 variables del correlograma (más arriba, vars se redefine para las tablas del anexo).
+# ---- Pearson vs. Spearman (variables de corr.png) ----
+# Diferencia chica = sin no linealidad relevante
+# vars_corr: las 5 variables del correlograma
 vars_corr <- c("aug_only_share", "both_share", "mean_exposure", "sub_only_share", "task_count")
 cp <- cor(panel[, vars_corr], method = "pearson")
 cs <- cor(panel[, vars_corr], method = "spearman")

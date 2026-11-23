@@ -1,6 +1,6 @@
 # ==============================================================
 # 06 - Gráfico exploratorio (instancia 3): cuánto y de qué forma se exponen los países
-# Lee:   input/paises_analisis.csv, input/paises_tramos.csv
+# Lee:   input/paises_analisis.csv, input/paises_tramos.csv, auxiliar/nombres_paises_es.csv
 # Guarda: output/tablas/exploratorio_medianas.csv; output/graficos/expl.png
 # ==============================================================
 library(here)
@@ -18,7 +18,7 @@ source(here("utils", "guardar_png.R"))
 source(here("utils", "leer_paises_con_tramos.R"))
 source(here("utils", "nombre_es.R"))
 
-# ---- Entradas: input/paises_analisis.csv (script 01) e input/paises_tramos.csv (script 04) ----
+# ---- Entradas (scripts 01 y 04) ----
 paises <- leer_paises_con_tramos()
 paises_ing <- filter(paises, !sin_clasif)      # 122 países con clasificación de ingreso
 
@@ -26,8 +26,7 @@ d <- paises_ing %>% mutate(etq = nombre_es(iso3, country_name))
 stopifnot(all(d$aug_only_share > 0))
 med_x <- median(d$expuestas); med_y <- median(d$ratio)
 write_csv(tibble(n = nrow(d), mediana_expuestas = med_x, mediana_cociente = med_y), here("output", "tablas", "exploratorio_medianas.csv"))
-# Rótulos con posición manual (lx = % de tareas expuestas, ly = cociente) para que ninguno tape un punto;
-# cada rótulo se une a su país con una línea fina que termina en el borde del texto.
+# Rótulos: posición manual (lx = % expuestas, ly = cociente); línea hasta el borde del texto
 pos_etq <- tibble::tribble(
   ~iso3, ~lx, ~ly,
   "BRA", 0.569, 12.095, "CHL", 0.5209, 9.055, "DEU", 0.5759, 7.968,

@@ -1,11 +1,10 @@
 # ==============================================================
 # 01 - Faltantes, outliers y limpieza de la base
-# Diagnostica faltantes y atípicos, aplica el criterio de limpieza y guarda las bases para el análisis.
 # Lee:   raw/country_occupation_panel.parquet, auxiliar/country_map_panel.csv, auxiliar/grupos_ocupacionales.csv
 # Guarda: input/panel_analisis.csv, input/paises_analisis.csv, output/tablas/faltantes_por_variable.csv,
 #         output/tablas/outliers_tukey_por_grupo.csv, output/tablas/outliers_resumen.csv,
 #         output/tablas/limpieza_antes_despues.csv,
-#         output/graficos/disp.png (diapositiva 7)
+#         output/graficos/disp.png
 # ==============================================================
 library(here)
 library(tidyverse)
@@ -18,12 +17,12 @@ source(here("utils", "guardar_png.R"))
 source(here("utils", "cargar_nombres_soc.R"))
 
 # ---- Entradas ----
-# raw/: panel país x ocupación tal como se descargó del Atlas (parquet; se lee con el paquete arrow).
-# auxiliar/: base de países del Atlas (ingreso, PBI per cápita, población, participaciones).
+# raw/: panel país x ocupación (parquet original del Atlas)
+# auxiliar/: base de países (ingreso, PBI, población)
 panel <- arrow::read_parquet(here("raw", "country_occupation_panel.parquet"))
 paises_raw <- read_csv(here("auxiliar", "country_map_panel.csv"), show_col_types = FALSE)
 
-# ---- 1. Faltantes: conteo por columna y unicidad de la clave país x ocupación ----
+# ---- 1. Faltantes y duplicados (país x ocupación) ----
 faltantes <- tibble(variable = names(panel), faltantes = colSums(is.na(panel)))
 write_csv(faltantes, here("output", "tablas", "faltantes_por_variable.csv"))
 n_duplicados <- sum(duplicated(panel[c("iso3", "onet_soc_code")]))
@@ -33,9 +32,9 @@ stopifnot(nrow(panel) == 114452, sum(faltantes$faltantes) == 0, n_duplicados == 
 panel <- panel %>% mutate(soc_major = str_sub(onet_soc_code, 1, 2))
 soc_nombre <- cargar_nombres_soc("es")
 
-# ---- 2. Outliers: regla de Tukey (1,5 x RIC) dentro de cada grupo ocupacional ----
-# Se eligió Tukey porque no supone normalidad y la variable es poco asimétrica y acotada (0-3).
-# Los atípicos son valores válidos de la escala (0 a 3): se mantienen (ver decisión abajo).
+# ---- 2. Outliers: Tukey (1,5 x RIC) por grupo SOC ----
+# Tukey: sin supuesto de normalidad; variable acotada (0 a 3)
+# Atípicos = valores válidos: se mantienen
 
 tukey_grupo <- panel %>% group_by(soc_major) %>%
   mutate(lo = quantile(mean_exposure, .25) - 1.5 * IQR(mean_exposure),
@@ -60,16 +59,15 @@ stopifnot(nrow(paises) == 124, sum(is.na(paises[vars_hcpc])) == 0)
 
 
 # ---- 4. Decisión de limpieza ----
-# Etiopía y Venezuela no tienen clasificación de ingreso: se marcan y quedan fuera de todo análisis que
-# use el ingreso (Kruskal-Wallis, chi cuadrado, regresión). ANOVA y HCPC no lo usan: conservan los 124.
-# Las 42 observaciones del techo (exposición = 3) son valores válidos del modelo: se mantienen.
+# ETH y VEN (sin clasificación de ingreso): fuera de KW, chi2 y regresión; ANOVA y HCPC con los 124
+# Techo (exposición = 3, 42 obs.): se mantiene
 iso_sin_clasif <- paises$iso3[paises$sin_clasif]
 panel_limpio <- filter(panel, !iso3 %in% iso_sin_clasif)
 panel <- panel %>% mutate(con_ingreso = !iso3 %in% iso_sin_clasif)
 write_csv(panel, here("input", "panel_analisis.csv"))
 write_csv(paises, here("input", "paises_analisis.csv"))
 
-# ---- 5. Descriptivas antes y después de la limpieza; sensibilidad al techo ----
+# ---- 5. Descriptivas antes y después; sensibilidad al techo ----
 desc <- function(x) tibble(media = mean(x), mediana = median(x), desvio = sd(x),
                            p10 = quantile(x, .1), p90 = quantile(x, .9), razon_p90_p10 = quantile(x, .9) / quantile(x, .1), maximo = max(x))
 antes   <- desc(panel$mean_exposure)
@@ -89,7 +87,7 @@ cat(sprintf("Sin el techo: media %.4f -> %.4f | filas %d\n", antes$media, techo$
 cat(sprintf("Países sin clasificación: %s\n", paste(iso_sin_clasif, collapse = ", ")))
 
 
-# ---- 6. Gráfico: dispersión por grupo y atípicos (diapositiva 7) ----
+# ---- 6. Gráfico: dispersión por grupo y atípicos (disp.png) ----
 est <- panel %>% group_by(soc_major) %>%
   summarise(q1 = quantile(mean_exposure, .25), med = median(mean_exposure), q3 = quantile(mean_exposure, .75),
             media = mean(mean_exposure), .groups = "drop") %>%
@@ -119,9 +117,8 @@ guardar_png(p, "disp.png", ancho = 8.1, alto = 4.88, k = 1.05,
                           "%), valores válidos del modelo que se mantienen. Las ", sum(panel$mean_exposure == 3),
                           " observaciones en el techo de la escala (3) quedan dentro del rango de su grupo."))
 
-# ---- 7. Resumen de atípicos: Tukey dentro de cada grupo frente a Tukey sobre todo el panel (diapositiva 7) ----
-# Dentro de cada grupo SOC (lo que muestra disp.png) se marcan más casos porque cada grupo tiene su propio rango.
-# Sobre el panel completo, la regla de Tukey solo marca el techo de la escala (= 3).
+# ---- 7. Atípicos: Tukey por grupo vs. global (outliers_resumen.csv) ----
+# Global: solo marca el techo (= 3)
 q_glob <- quantile(panel$mean_exposure, c(.25, .75))
 cota_inf <- q_glob[[1]] - 1.5 * diff(q_glob); cota_sup <- q_glob[[2]] + 1.5 * diff(q_glob)
 atip_glob <- panel$mean_exposure < cota_inf | panel$mean_exposure > cota_sup
@@ -132,3 +129,31 @@ outliers_resumen <- tibble(
   en_el_techo = c(sum(tukey$mean_exposure == 3), sum(panel$mean_exposure[atip_glob] == 3)),
   cota_superior_global = c(NA, cota_sup))
 write_csv(outliers_resumen, here("output", "tablas", "outliers_resumen.csv")); print(as.data.frame(outliers_resumen))
+
+# ---- 8. Otros datos que se citan en la presentación ----
+# Error de la fuente: substitution_share = sub_only_share, augmentation_share = aug_only_share
+cat(sprintf("substitution_share igual a sub_only_share: %s | augmentation_share igual a aug_only_share: %s\n",
+            isTRUE(all.equal(panel$substitution_share, panel$sub_only_share)),
+            isTRUE(all.equal(panel$augmentation_share, panel$aug_only_share))))
+
+# Base de países: dimensiones, columnas en cero, nulos y cruce
+num_raw <- select(paises_raw, where(is.numeric))
+cols_cero <- names(num_raw)[sapply(num_raw, function(x) all(x == 0, na.rm = TRUE))]
+nulos_servicios <- colSums(is.na(select(paises_raw, starts_with("services_"))))
+cat(sprintf("country_map_panel: %d países x %d variables | columnas con todos ceros: %d | nulos en variables de servicios: %d de %d\n",
+            nrow(paises_raw), ncol(paises_raw), length(cols_cero), max(nulos_servicios), nrow(paises_raw)))
+cat(sprintf("Cruce por iso3: %d de %d países del panel están en la base de países\n",
+            sum(unique(panel$iso3) %in% paises_raw$iso3), n_distinct(panel$iso3)))
+
+# Medianas por país (124)
+cat(sprintf("Mediana de tareas expuestas por país: %.1f%% | mediana de tareas reemplazables por cada una solo asistida: %.1f a 1\n",
+            100 * median(paises$share_exposed), median(paises$ratio)))
+
+# Asimetría y ocupación del techo
+x <- panel$mean_exposure
+cat(sprintf("Asimetría de la exposición media: %.2f\n", mean((x - mean(x))^3) / mean((x - mean(x))^2)^1.5))
+ocup_techo <- names(which.max(table(panel$occupation_title[panel$mean_exposure == 3])))
+graders <- panel %>% filter(occupation_title == ocup_techo) %>%
+  left_join(select(paises, iso3, log_gdp_pc), by = "iso3")
+cat(sprintf("Ocupación con más casos en el techo: %s | correlación de su exposición con el log del PBI: %.2f\n",
+            ocup_techo, cor(graders$mean_exposure, graders$log_gdp_pc, use = "complete.obs")))

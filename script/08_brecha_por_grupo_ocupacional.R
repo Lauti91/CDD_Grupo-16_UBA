@@ -1,5 +1,5 @@
 # ==============================================================
-# 08 - Brecha de exposición entre tramos alto y bajo por grupo ocupacional (anexo A3)
+# 08 - Brecha de exposición entre tramos alto y bajo por grupo ocupacional (soc.png)
 # Lee:   input/panel_analisis.csv, input/paises_analisis.csv, input/paises_tramos.csv, auxiliar/grupos_ocupacionales.csv
 # Guarda: output/tablas/brecha_por_grupo_soc.csv, interaccion_tramo_soc.csv; output/graficos/soc.png
 # ==============================================================
@@ -17,15 +17,14 @@ source(here("utils", "guardar_png.R"))
 source(here("utils", "leer_paises_con_tramos.R"))
 source(here("utils", "cargar_nombres_soc.R"))
 
-# ---- Entradas: guardadas por 01_limpieza_faltantes_outliers.R ----
+# ---- Entradas (scripts 01 y 04) ----
 panel <- read_csv(here("input", "panel_analisis.csv"), show_col_types = FALSE,
                   col_types = cols(soc_major = col_character()))
-# ---- Entradas (continúa): input/paises_analisis.csv (script 01) e input/paises_tramos.csv (script 04) ----
 paises <- leer_paises_con_tramos()
 paises_ing <- filter(paises, !sin_clasif)      # 122 países con clasificación de ingreso
 
 soc_es <- cargar_nombres_soc("es")
-# matriz país x grupo ocupacional (exposición media)
+# Matriz país x grupo SOC (exposición media)
 M <- panel %>% select(iso3, onet_soc_code, mean_exposure) %>%
   pivot_wider(names_from = onet_soc_code, values_from = mean_exposure) %>%
   as.data.frame() %>% column_to_rownames("iso3") %>% as.matrix()
@@ -88,12 +87,9 @@ guardar_png(p, "soc.png", ancho = 8.0, alto = 4.95, k = 0.9, bg = "white",
 cat(sprintf("Brecha: de %+.2f a %+.2f puntos | PBI mediano tramo bajo %.0f, alto %.0f\n", min(brecha$dif), max(brecha$dif),
             median(paises$gdp_per_capita[paises$tramo == "1"]), median(paises$gdp_per_capita[paises$tramo == "3"])))
 
-# ---- ¿La brecha entre tramos depende del grupo ocupacional? Test de permutación (anexo A3) ----
-# ANOVA tramo x grupo SOC sobre la matriz país x grupo (124 x 22). Se mira la INTERACCIÓN: el efecto
-# principal del tramo es circular, porque los tramos se armaron con la exposición.
-# Permutación sobre países: se mezclan las etiquetas de tramo y cada país conserva sus 22 grupos juntos
-# (no supone normalidad ni varianzas iguales). Al permutar también se destruye el efecto del tramo,
-# así que el test es aproximado y apoya lo descriptivo.
+# ---- Interacción tramo x grupo SOC: test de permutación (interaccion_tramo_soc.csv) ----
+# ANOVA tramo x grupo sobre la matriz 124 x 22; solo la interacción (el efecto tramo es circular)
+# Permuta las etiquetas de tramo entre países; sin normalidad ni varianzas iguales; test aproximado
 tramo_pais <- paises$tramo[match(rownames(Ms), paises$iso3)]
 stopifnot(!anyNA(tramo_pais), ncol(Ms) == 22)
 ss_interaccion <- function(Ms, cl) {

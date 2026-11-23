@@ -1,7 +1,7 @@
 # ==============================================================
 # 04 - Método 2: HCPC (tramos de países por perfil de exposición)
-# ACP sobre 7 variables, Ward + k-means, k = 3 (partición 23 / 33 / 68 con FactoMineR 2.9).
-# Lee:   input/paises_analisis.csv
+# ACP (7 variables) + Ward + k-means, k = 3 (23 / 33 / 68)
+# Lee:   input/paises_analisis.csv, auxiliar/nombres_paises_es.csv
 # Guarda: input/paises_tramos.csv; output/tablas/robustez_ari.csv, composicion_vs_nivel.csv, hcpc_sensibilidad_k.csv;
 #         output/graficos/kdendro.png, mapa.png, fronteras.png, robust.png, compos.png
 # ==============================================================
@@ -28,14 +28,14 @@ source(here("utils", "pca_exacta.R"))
 vars_hcpc <- c("share_exposed", "mean_task_exposure", "sub_only_share",
                "both_share", "aug_only_share", "task_exposure_sd", "share_high_exposure")
 
-# ---- Entradas ----
+# ---- Entradas (script 01) ----
 paises <- read_csv(here("input", "paises_analisis.csv"), show_col_types = FALSE)
 stopifnot(nrow(paises) == 124, sum(is.na(paises[vars_hcpc])) == 0)
 
-# ---------------- D. HCPC de países (k = 3) ----------------
+# ---- 1. HCPC de países (k = 3) ----
 datos_hcpc <- paises %>% select(iso3, all_of(vars_hcpc)) %>%
   as.data.frame() %>% column_to_rownames("iso3")
-res_pca  <- pca_exacta(datos_hcpc, ncp = 3)   # SVD exacta: mismo resultado en cualquier versión de FactoMineR
+res_pca  <- pca_exacta(datos_hcpc, ncp = 3)   # SVD exacta (utils/pca_exacta.R)
 res_hcpc <- HCPC(res_pca, nb.clust = 3, graph = FALSE)
 paises <- paises %>%
   left_join(tibble(iso3 = rownames(res_hcpc$data.clust), cl_raw = res_hcpc$data.clust$clust), by = "iso3") %>%
@@ -83,7 +83,7 @@ lineas <- d_ramas %>% group_by(rama) %>% summarise(x0 = min(dim1), x1 = max(dim1
   mutate(y0 = if_else(rama == "arriba", predict(m_arr, tibble(dim1 = x0)), predict(m_aba, tibble(dim1 = x0))),
          y1 = if_else(rama == "arriba", predict(m_arr, tibble(dim1 = x1)), predict(m_aba, tibble(dim1 = x1))))
 
-# ---------------- E. HCPC por composición del margen ----------------
+# ---- 2. HCPC por composición ----
 comp <- paises %>%
   mutate(l_sub = log(sub_rel), l_both = log(both_rel), l_aug = log(aug_rel),
          centro = (l_sub + l_both + l_aug) / 3,
@@ -99,7 +99,7 @@ stopifnot(which.max(tapply(comp$aug_rel, comp$cluster_comp, median)) == 2,
           which.max(tapply(comp$int_rel, comp$cluster_comp, median)) == 3)
 ari_comp_nivel <- ari(comp$cluster_comp, paises$tramo[match(comp$iso3, paises$iso3)])
 
-# ---------------- G. Robustez del HCPC a las variables elegidas ----------------
+# ---- 3. Robustez a las variables (ARI) ----
 hc_cons <- function(vars, k = 3) {
   Z <- scale(paises[, vars]); cl_ <- cutree(hclust(dist(Z), method = "ward.D2"), k)
   centros <- rowsum(Z, cl_) / as.numeric(table(cl_)); kmeans(Z, centers = centros)$cluster
@@ -112,7 +112,7 @@ robustez <- tibble(
           ari(paises$tramo, hc_cons(c("sub_only_share", "both_share", "aug_only_share")))))
 
 
-# ---- Guardar resultados para los scripts siguientes (05 a 08) ----
+# ---- 4. Guardar tramos (para 05 a 08) ----
 tramos_out <- paises %>% select(iso3, tramo) %>%
   left_join(select(comp, iso3, cluster_comp), by = "iso3") %>%
   left_join(select(coord, iso3, dim1, dim2, silueta, transicion), by = "iso3") %>%
@@ -120,7 +120,7 @@ tramos_out <- paises %>% select(iso3, tramo) %>%
 write_csv(tramos_out, here("input", "paises_tramos.csv"))
 write_csv(robustez, here("output", "tablas", "robustez_ari.csv"))
 
-# ---- Elección de k (diapositiva 12) ----
+# ---- 5. Elección de k (kdendro.png) ----
 arbol <- res_hcpc$call$t$tree
 alturas <- tibble(altura = head(sort(arbol$height, decreasing = TRUE), 8)) %>%
   mutate(fusion = factor(paste0("De ", row_number() + 1, " a ", row_number()),
@@ -147,12 +147,11 @@ guardar_png(unir(p_alt + p_sil + plot_layout(widths = c(1.2, 1))), "kdendro.png"
                           coma(sil_k$silueta_media[sil_k$k == 3]), "); k = 2 tiene mayor silueta (", coma(sil_k$silueta_media[sil_k$k == 2]), ")."))
 print(sil_k)
 
-# ---- Mapa de los países (diapositiva 13; gráfico de la instancia 3) ----
+# ---- 6. Mapa de países (mapa.png) ----
 etq_front <- coord %>% filter(silueta < 0.25)                       # 15 países de frontera
 etq_ref   <- coord %>% filter(iso3 %in% c("SSD", "ARG", "KOR", "USA", "CHN"))
 stopifnot(nrow(etq_front) == 15)
-# Rótulos del mapa: cuatro casos de referencia, con posición manual (lx, ly)
-# para que ninguno tape un punto; cada rótulo se une a su país con una línea fina.
+# Rótulos: posición manual (lx, ly), sin tapar puntos
 pos_map <- tibble::tribble(
   ~iso3, ~lx,  ~ly,
   "SSD", -5.6, -1.5, "ETH", -4.8, -1.1, "TZA", -3.7, -1.1, "CMR", -2.5, -1.0,
@@ -163,7 +162,7 @@ pos_map <- tibble::tribble(
   "NER", -4.6, -1.0, "SEN", -2.6, 1.45, "NGA", -2.2, -1.0)
 etq_map <- inner_join(filter(coord, iso3 %in% c("ARG", "USA", "KOR", "DOM", "NER", "SEN", "NGA")), pos_map, by = "iso3")   # casos destacados
 stopifnot(nrow(etq_map) == 7)
-# La línea termina en el borde del rótulo (no en su centro): caja aproximada según la cantidad de letras
+# Línea hasta el borde del rótulo (caja según cantidad de letras)
 etq_map <- etq_map %>% mutate(
   dx = dim1 - lx, dy = dim2 - ly,
   hw = 0.127 * nchar(etq) / 2 + 0.04, hh = 0.085 + 0.03,
@@ -209,11 +208,10 @@ guardar_png(p, "mapa.png", ancho = 8.7, alto = 4.95, k = 0.9, bg = "white",
             nota = paste0("ACP sobre 7 variables estandarizadas: proporción de tareas expuestas, exposición media y su desvío, proporción de alta exposición y margen (solo sustitución, ambas, solo aumentación). ",
                           "Se rotulan siete casos de referencia: Níger, Senegal, Nigeria, República Dominicana, Argentina, Corea del Sur y Estados Unidos. La exposición la estima un modelo de lenguaje por tarea."))
 
-# ---- Fronteras entre tramos (anexo A5) ----
-# Puntos huecos: los 15 países con silueta < 0,25 (frontera). Rótulos: países de referencia del trabajo y
-# Laos, el único con silueta negativa (mal clasificado).
+# ---- 7. Fronteras entre tramos (fronteras.png) ----
+# Hueco: silueta < 0,25. Rótulos: países de referencia y Laos (silueta negativa)
 coord <- coord %>% mutate(frontera = if_else(silueta < 0.25, "Silueta < 0,25 (frontera)", "Silueta ≥ 0,25"))
-# Los rótulos del tramo alto se sacan fuera de la nube para que se vea a qué punto apunta cada uno.
+# Rótulos del tramo alto: fuera de la nube
 etq_fr <- coord %>% filter(iso3 %in% c("ARG", "USA", "CHN", "IND", "BRA", "LAO")) %>%
   mutate(nx = case_when(iso3 == "IND" ~ -0.45, iso3 == "ARG" ~ -0.35, iso3 == "BRA" ~ 0.1,
                         iso3 == "USA" ~ 0.25, iso3 == "CHN" ~ -0.75, TRUE ~ 0),
@@ -241,7 +239,7 @@ guardar_png(p, "fronteras.png", ancho = 8.6, alto = 4.95, k = 1.4,
             nota = paste0("Rótulos: países de referencia y Laos, el único con silueta negativa. Silueta media ", coma(mean(coord$silueta)),
                           " (tramo bajo / medio / alto: ", paste(coma(sil_tr, 3), collapse = " / "), ")."))
 
-# ---- Robustez frente a las variables elegidas (diapositiva 15) ----
+# ---- 8. Robustez (robust.png) ----
 rob <- robustez %>% mutate(variables = factor(variables, levels = rev(variables)),
                            tipo = c("base", "base", "comp"), etiqueta = coma(ari))
 p <- ggplot(rob, aes(ari, variables, fill = tipo)) +
@@ -257,7 +255,7 @@ guardar_png(p, "robust.png", ancho = 8.6, alto = 4.95, k = 1.3,
             subtitulo = "Índice de Rand ajustado (ARI) entre el HCPC base de 3 tramos (7 variables) y variantes con menos variables; 1 = partición idéntica.",
             nota = "ARI sobre los 124 países. Composición = proporciones de solo sustitución, ambas y solo aumentación.")
 
-# ---- HCPC por composición (anexo A4) ----
+# ---- 9. HCPC por composición (compos.png) ----
 coord_c <- as.data.frame(res_pca_c$ind$coord[, 1:2]) %>% rownames_to_column("iso3") %>%
   rename(c1 = Dim.1, c2 = Dim.2) %>%
   left_join(select(comp, iso3, country_name, cluster_comp, aug_rel, int_rel), by = "iso3") %>%
@@ -268,7 +266,7 @@ eig_c <- res_pca_c$eig[, 2]
 lab_tipo <- setNames(paste0(nom_tipo, " (", table(comp$cluster_comp), ")"), names(nom_tipo))
 etq_c <- c("ARG", "NGA", "USA", "CRI", "CHN")   # casos destacados
 
-# Rótulos con posición manual (fuera de las nubes) para que no tapen puntos
+# Rótulos: posición manual, fuera de las nubes
 pos_c <- inner_join(filter(coord_c, iso3 %in% etq_c),
   tibble(iso3 = c("ARG", "NGA", "CHN", "USA", "KOR", "CRI", "HRV", "SSD"),
          lx = c(-2.3, -2.3, -1.0, 1.9, 2.2, 1.2, 3.3, -3.0), ly = c(1.15, 0.7, 1.85, 1.85, 0.75, 0.3, -1.6, -1.65)), by = "iso3")
@@ -305,11 +303,9 @@ guardar_png(unir(p_comp + p_cruce + plot_layout(widths = c(1.35, 1))), "compos.p
 cat(sprintf("ARI composición vs nivel: %.2f | tipo 3 y nivel 3 coinciden: %d de %d\n",
             ari_comp_nivel, tab_cr["3", "3"], sum(tab_cr["3", ])))
 
-# ---- Sensibilidad de la elección de k (diapositivas 12 y 14, anexo A6) ----
-# nb.clust = -1: FactoMineR elige solo dónde cortar el árbol (según la ganancia de inercia entre grupos).
-# Ese corte automático cambia con la versión del paquete (3 grupos con FactoMineR 2.9; 9 con la 2.18,
-# uno de ellos Sudán del Sur solo): por eso k se fija a mano en 3 y la tabla registra la versión usada.
-# ARI entre k = 3 y k = 4: cuánto cambia la partición al agregar un grupo (el de transición).
+# ---- 10. Sensibilidad de k (hcpc_sensibilidad_k.csv) ----
+# nb.clust = -1 (corte automático): 3 grupos con FactoMineR 2.9, 9 con la 2.18 -> k fijo en 3
+# ARI k = 3 vs. k = 4
 k_auto <- nlevels(HCPC(res_pca, nb.clust = -1, graph = FALSE)$data.clust$clust)
 hcpc_sensibilidad_k <- tibble(
   medida = c("Cantidad de grupos con corte automático (nb.clust = -1)",
@@ -317,3 +313,33 @@ hcpc_sensibilidad_k <- tibble(
   valor = c(k_auto, ari(cl_orden, cl4)),
   version_factominer = as.character(packageVersion("FactoMineR")))
 write_csv(hcpc_sensibilidad_k, here("output", "tablas", "hcpc_sensibilidad_k.csv")); print(as.data.frame(hcpc_sensibilidad_k))
+
+# ---- 11. Otros datos que se citan en la presentación ----
+# Plano del ACP y ramas (mapa.png)
+cat(sprintf("Dim 1: %.1f%% de la varianza, correlación con la exposición media %.3f | Dim 2: %.1f%%\n",
+            eig[1], cor(coord$dim1, paises$mean_task_exposure[match(coord$iso3, paises$iso3)]), eig[2]))
+for (r in c("arriba", "abajo")) {
+  m_r <- if (r == "arriba") m_arr else m_aba
+  cat(sprintf("Rama %s: %d países | pendiente %+.2f | R2 %.2f\n", r, sum(d_ramas$rama == r), coef(m_r)[2], summary(m_r)$r.squared))
+}
+
+# Silueta por tramo y países de frontera (fronteras.png)
+sil_tramo <- tapply(coord$silueta, coord$tramo, mean)
+cat(sprintf("Silueta media por tramo (bajo / medio / alto): %.3f / %.3f / %.3f\n", sil_tramo[1], sil_tramo[2], sil_tramo[3]))
+frontera <- tibble(iso3 = rownames(coord_pca), cluster = sil[, "cluster"], vecino = sil[, "neighbor"], silueta = sil[, "sil_width"]) %>%
+  filter(silueta < 0.25) %>%
+  mutate(limite = if_else(pmax(cluster, vecino) == 2, "bajo-medio", "medio-alto"), etq = coord$etq[match(iso3, coord$iso3)]) %>%
+  arrange(silueta)
+cat(sprintf("Países de frontera (silueta < 0,25): %d | límite bajo-medio: %d | límite medio-alto: %d\n",
+            nrow(frontera), sum(frontera$limite == "bajo-medio"), sum(frontera$limite == "medio-alto")))
+cat(sprintf("Silueta más baja: %s (%.3f)\n", frontera$etq[1], frontera$silueta[1]))
+cat("Bajo-medio:", paste(frontera$etq[frontera$limite == "bajo-medio"], collapse = ", "), "\n")
+
+# Coincidencia con el HCPC de solo exposición media (robust.png)
+tab_solo_media <- table(paises$tramo, hc_cons("mean_task_exposure"))
+cat(sprintf("Solo exposición media: coincide en %.1f%% de los países\n", 100 * sum(apply(tab_solo_media, 1, max)) / nrow(paises)))
+
+# Perfil de los clusters por composición (compos.png)
+perfil_comp <- comp %>% group_by(cluster_comp) %>%
+  summarise(paises = n(), exposicion_mediana = median(mean_task_exposure), pbi_pc_mediano = median(gdp_per_capita, na.rm = TRUE))
+print(as.data.frame(perfil_comp))

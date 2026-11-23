@@ -1,7 +1,7 @@
 # ==============================================================
 # 05 - Método 3: Kruskal-Wallis y chi cuadrado (tramos del HCPC vs. ingreso)
-# Solo países con clasificación de ingreso (122).
-# Lee:   input/paises_analisis.csv, input/paises_tramos.csv
+# 122 países con clasificación de ingreso
+# Lee:   input/paises_analisis.csv, input/paises_tramos.csv, auxiliar/nombres_paises_es.csv
 # Guarda: output/tablas/ingreso_kw_chi2.csv; output/graficos/ingreso.png
 # ==============================================================
 library(here)
@@ -18,7 +18,7 @@ source(here("utils", "guardar_png.R"))
 source(here("utils", "leer_paises_con_tramos.R"))
 source(here("utils", "nombre_es.R"))
 
-# ---- Entradas: input/paises_analisis.csv (script 01) e input/paises_tramos.csv (script 04) ----
+# ---- Entradas (scripts 01 y 04) ----
 paises <- leer_paises_con_tramos()
 paises_ing <- filter(paises, !sin_clasif)      # 122 países con clasificación de ingreso
 
