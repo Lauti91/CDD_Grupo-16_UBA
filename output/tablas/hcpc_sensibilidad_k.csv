@@ -1,0 +1,3 @@
+medida,valor,version_factominer
+Cantidad de grupos con corte automático (nb.clust = -1),9,2.18
+Índice de Rand ajustado entre k = 3 y k = 4,0.6422274921965622,2.18

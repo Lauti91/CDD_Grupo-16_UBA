@@ -1,0 +1,5 @@
+prueba,estadistico,gl,p_valor
+Shapiro-Wilk (muestra de 5.000 residuos),0.9912565998640537,NA,5.0024491168416254e-17
+Fligner-Killeen (varianzas iguales entre países),5050.568756634335,123,0
+ANOVA de Welch (efecto país),1037.0748203437977,"123 y 38728,4",0
+Kruskal-Wallis (efecto país),51796.73013282784,123,0
