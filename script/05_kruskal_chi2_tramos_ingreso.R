@@ -43,7 +43,11 @@ p <- ggplot(base, aes(tramo, log_gdp_pc)) +
   scale_x_discrete(labels = function(x) paste0(nom_nivel[x], "\n(n = ", n_cl[x], ")")) +
   labs(x = NULL, y = "log(PBI per cápita)") +
   theme_slide() + theme(panel.grid.major.x = element_blank())
-guardar_png(p, "ingreso.png", w = 14, h = 6.54)
+guardar_png(p, "ingreso.png", ancho = 8.1, alto = 4.88, k = 1.5,
+            titulo = "Los tramos de países siguen el nivel de ingreso",
+            subtitulo = paste0("PBI per cápita (log) de los países de cada tramo del HCPC; puntos por nivel de ingreso del Banco Mundial (n = ", nrow(base), ")."),
+            nota = paste0("Kruskal-Wallis: ε² = ", coma(eps2), "; V de Cramér (tramos × nivel de ingreso) = ", coma(cramer),
+                          ". Etiopía y Venezuela no tienen clasificación de ingreso y se excluyen."))
 
 # ---- Supuestos del chi cuadrado y países fuera del patrón ----
 base <- paises_ing

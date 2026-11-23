@@ -1,7 +1,7 @@
 # ==============================================================
 # 08 - Brecha de exposición entre tramos alto y bajo por grupo ocupacional (anexo A3)
 # Lee:   input/panel_analisis.csv, input/paises_analisis.csv, input/paises_tramos.csv, auxiliar/grupos_ocupacionales.csv
-# Guarda: output/tablas/brecha_por_grupo_soc.csv; output/graficos/soc.png
+# Guarda: output/tablas/brecha_por_grupo_soc.csv, interaccion_tramo_soc.csv; output/graficos/soc.png
 # ==============================================================
 library(here)
 library(tidyverse)
@@ -64,7 +64,7 @@ p <- ggplot(brecha, aes(y = grupo)) +
            fontface = "bold", color = gris_tx, lineheight = 0.85, vjust = 0) +
   annotate("text", x = fila_top$t3, y = lab_y, label = "Países de\nexposición alta", size = 3.1, family = fam,
            fontface = "bold", color = navy, lineheight = 0.85, vjust = 0) +
-  annotate("text", x = 2.2, y = which(levels(brecha$grupo) == "Gastronomía") - 0.1, hjust = 0, vjust = 1,
+  annotate("text", x = 2.98, y = which(levels(brecha$grupo) == "Gastronomía") - 0.1, hjust = 1, vjust = 1,
            label = paste0("Las 5 brechas más grandes:\nde ", coma(min(top5$dif), signo = TRUE), " a ", coma(max(top5$dif), signo = TRUE), " puntos"),
            size = 3.3, family = fam, fontface = "bold", color = naranja, lineheight = 0.9) +
   annotate("text", x = 1.62, y = which(levels(brecha$grupo) == "Arte, diseño y medios") + 0.45, hjust = 0, vjust = 1,
@@ -80,6 +80,35 @@ p <- ggplot(brecha, aes(y = grupo)) +
         axis.text.x = element_text(size = 9, color = gris_tx), panel.grid.major.y = element_blank(),
         panel.grid.minor = element_blank(), panel.grid.major.x = element_line(color = grilla, linewidth = 0.3),
         plot.background = element_rect(fill = "white", color = NA), plot.margin = margin(12, 14, 10, 12))
-guardar_png(p, "soc.png", w = 7.6, h = 4.1, bg = "white")
+guardar_png(p, "soc.png", ancho = 8.0, alto = 4.95, k = 0.9, bg = "white",
+            titulo = "Brecha de exposición por grupo ocupacional",
+            subtitulo = paste0("Exposición media (escala 0 a 3) por grupo SOC en los ", sum(paises$tramo == "1"), " países de exposición baja (círculo blanco) y los ",
+                               sum(paises$tramo == "3"), " de exposición alta (azul marino). Puntos tenues: cada país."),
+            nota = "Grupos de países: HCPC de los 124 países según su perfil de exposición; se omite el tramo medio (33). Brecha en puntos de la escala de 0 a 3. La exposición la estima un modelo de lenguaje por tarea.")
 cat(sprintf("Brecha: de %+.2f a %+.2f puntos | PBI mediano tramo bajo %.0f, alto %.0f\n", min(brecha$dif), max(brecha$dif),
             median(paises$gdp_per_capita[paises$tramo == "1"]), median(paises$gdp_per_capita[paises$tramo == "3"])))
+
+# ---- ¿La brecha entre tramos depende del grupo ocupacional? Test de permutación (anexo A3) ----
+# ANOVA tramo x grupo SOC sobre la matriz país x grupo (124 x 22). Se mira la INTERACCIÓN: el efecto
+# principal del tramo es circular, porque los tramos se armaron con la exposición.
+# Permutación sobre países: se mezclan las etiquetas de tramo y cada país conserva sus 22 grupos juntos
+# (no supone normalidad ni varianzas iguales). Al permutar también se destruye el efecto del tramo,
+# así que el test es aproximado y apoya lo descriptivo.
+tramo_pais <- paises$tramo[match(rownames(Ms), paises$iso3)]
+stopifnot(!anyNA(tramo_pais), ncol(Ms) == 22)
+ss_interaccion <- function(Ms, cl) {
+  n     <- as.numeric(table(cl))
+  Mu    <- rowsum(Ms, cl) / n                     # medias tramo x grupo
+  fila  <- rowMeans(Mu)                           # media de cada tramo
+  col   <- colSums(Mu * n) / sum(n)               # media de cada grupo
+  ajust <- outer(fila, rep(1, ncol(Mu))) + outer(rep(1, nrow(Mu)), col - mean(Ms))
+  sum(n * (Mu - ajust)^2)
+}
+ss_obs <- ss_interaccion(Ms, tramo_pais)
+set.seed(123)
+B_perm <- 3000
+ss_perm <- replicate(B_perm, ss_interaccion(Ms, sample(tramo_pais)))
+interaccion <- tibble(ss_interaccion_observada = ss_obs, ss_media_permutaciones = mean(ss_perm),
+                      permutaciones = B_perm, superan_la_observada = sum(ss_perm >= ss_obs),
+                      p_valor = (sum(ss_perm >= ss_obs) + 1) / (B_perm + 1))
+write_csv(interaccion, here("output", "tablas", "interaccion_tramo_soc.csv")); print(as.data.frame(interaccion))

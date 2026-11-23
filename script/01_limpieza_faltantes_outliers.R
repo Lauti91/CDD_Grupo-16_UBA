@@ -3,7 +3,8 @@
 # Diagnostica faltantes y atípicos, aplica el criterio de limpieza y guarda las bases para el análisis.
 # Lee:   raw/country_occupation_panel.parquet, auxiliar/country_map_panel.csv, auxiliar/grupos_ocupacionales.csv
 # Guarda: input/panel_analisis.csv, input/paises_analisis.csv, output/tablas/faltantes_por_variable.csv,
-#         output/tablas/outliers_tukey_por_grupo.csv, output/tablas/limpieza_antes_despues.csv,
+#         output/tablas/outliers_tukey_por_grupo.csv, output/tablas/outliers_resumen.csv,
+#         output/tablas/limpieza_antes_despues.csv,
 #         output/graficos/disp.png (diapositiva 7)
 # ==============================================================
 library(here)
@@ -30,17 +31,17 @@ cat(sprintf("Faltantes en el panel: %d | duplicados en iso3 x ocupación: %d | f
             sum(faltantes$faltantes), n_duplicados, nrow(panel), n_distinct(panel$iso3)))
 stopifnot(nrow(panel) == 114452, sum(faltantes$faltantes) == 0, n_duplicados == 0, n_distinct(panel$iso3) == 124)
 panel <- panel %>% mutate(soc_major = str_sub(onet_soc_code, 1, 2))
-soc_en <- cargar_nombres_soc("en")
+soc_nombre <- cargar_nombres_soc("es")
 
 # ---- 2. Outliers: regla de Tukey (1,5 x RIC) dentro de cada grupo ocupacional ----
 # Se eligió Tukey porque no supone normalidad y la variable es poco asimétrica y acotada (0-3).
-# Los atípicos son valores válidos de la escala (techo = 3): se mantienen (ver decisión abajo).
+# Los atípicos son valores válidos de la escala (0 a 3): se mantienen (ver decisión abajo).
 
 tukey_grupo <- panel %>% group_by(soc_major) %>%
   mutate(lo = quantile(mean_exposure, .25) - 1.5 * IQR(mean_exposure),
          hi = quantile(mean_exposure, .75) + 1.5 * IQR(mean_exposure)) %>%
   summarise(n = n(), atipicos = sum(mean_exposure < lo | mean_exposure > hi), .groups = "drop") %>%
-  mutate(grupo = soc_en[soc_major], porcentaje = 100 * atipicos / n)
+  mutate(grupo = soc_nombre[soc_major], porcentaje = 100 * atipicos / n)
 write_csv(tukey_grupo, here("output", "tablas", "outliers_tukey_por_grupo.csv"))
 
 vars_hcpc <- c("share_exposed", "mean_task_exposure", "sub_only_share",
@@ -92,7 +93,7 @@ cat(sprintf("Países sin clasificación: %s\n", paste(iso_sin_clasif, collapse =
 est <- panel %>% group_by(soc_major) %>%
   summarise(q1 = quantile(mean_exposure, .25), med = median(mean_exposure), q3 = quantile(mean_exposure, .75),
             media = mean(mean_exposure), .groups = "drop") %>%
-  mutate(iqr = q3 - q1, lo_f = q1 - 1.5 * iqr, hi_f = q3 + 1.5 * iqr, grupo = soc_en[soc_major])
+  mutate(iqr = q3 - q1, lo_f = q1 - 1.5 * iqr, hi_f = q3 + 1.5 * iqr, grupo = soc_nombre[soc_major])
 lim <- panel %>% left_join(est %>% select(soc_major, lo_f, hi_f), by = "soc_major")
 bigotes <- lim %>% filter(mean_exposure >= lo_f, mean_exposure <= hi_f) %>%
   group_by(soc_major) %>% summarise(w_lo = min(mean_exposure), w_hi = max(mean_exposure), .groups = "drop")
@@ -110,6 +111,24 @@ p <- ggplot(est, aes(y = grupo)) +
   geom_point(aes(media), shape = 18, color = naranja, size = 4.2) +
   scale_x_continuous(breaks = 0:3, limits = c(0, 3.05), expand = expansion(mult = c(0.01, 0.02))) +
   labs(x = "Exposición media", y = NULL) +
-  theme_slide(t_axtext = 10.5) + theme(panel.grid.major.y = element_blank())
-guardar_png(p, "disp.png", w = 9, h = 4.2)
+  theme_slide(t_axtitle = 12, t_axtext = 10.5) + theme(panel.grid.major.y = element_blank())
+guardar_png(p, "disp.png", ancho = 8.1, alto = 4.88, k = 1.05,
+            titulo = "Dispersión de la exposición dentro de cada grupo ocupacional",
+            subtitulo = "Cada observación es una ocupación en un país. Caja: rango intercuartil; línea blanca: mediana; rombo: media; naranja: outliers de Tukey.",
+            nota = paste0("Regla de Tukey (1,5 × RIC dentro de cada grupo SOC): ", nrow(atip), " outliers (", coma(100 * nrow(atip) / nrow(panel)),
+                          "%), valores válidos del modelo que se mantienen. Las ", sum(panel$mean_exposure == 3),
+                          " observaciones en el techo de la escala (3) quedan dentro del rango de su grupo."))
 
+# ---- 7. Resumen de atípicos: Tukey dentro de cada grupo frente a Tukey sobre todo el panel (diapositiva 7) ----
+# Dentro de cada grupo SOC (lo que muestra disp.png) se marcan más casos porque cada grupo tiene su propio rango.
+# Sobre el panel completo, la regla de Tukey solo marca el techo de la escala (= 3).
+q_glob <- quantile(panel$mean_exposure, c(.25, .75))
+cota_inf <- q_glob[[1]] - 1.5 * diff(q_glob); cota_sup <- q_glob[[2]] + 1.5 * diff(q_glob)
+atip_glob <- panel$mean_exposure < cota_inf | panel$mean_exposure > cota_sup
+outliers_resumen <- tibble(
+  criterio = c("Tukey (1,5 x RIC) dentro de cada grupo SOC", "Tukey (1,5 x RIC) sobre todo el panel"),
+  atipicos = c(nrow(tukey), sum(atip_glob)),
+  porcentaje = 100 * c(nrow(tukey), sum(atip_glob)) / nrow(panel),
+  en_el_techo = c(sum(tukey$mean_exposure == 3), sum(panel$mean_exposure[atip_glob] == 3)),
+  cota_superior_global = c(NA, cota_sup))
+write_csv(outliers_resumen, here("output", "tablas", "outliers_resumen.csv")); print(as.data.frame(outliers_resumen))
