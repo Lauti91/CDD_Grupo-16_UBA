@@ -101,8 +101,8 @@ ari_comp_nivel <- ari(comp$cluster_comp, paises$tramo[match(comp$iso3, paises$is
 
 # ---- 3. Robustez a las variables (ARI) ----
 hc_cons <- function(vars, k = 3) {
-  Z <- scale(paises[, vars]); cl_ <- cutree(hclust(dist(Z), method = "ward.D2"), k)
-  centros <- rowsum(Z, cl_) / as.numeric(table(cl_)); kmeans(Z, centers = centros)$cluster
+  z <- scale(paises[, vars]); cl_ <- cutree(hclust(dist(z), method = "ward.D2"), k)
+  centros <- rowsum(z, cl_) / as.numeric(table(cl_)); kmeans(z, centers = centros)$cluster
 }
 robustez <- tibble(
   variables = c("Solo exposición media", "Exposición media + desvío + tareas muy expuestas",
@@ -286,11 +286,12 @@ p_comp <- ggplot(coord_c, aes(c1, c2, color = cluster_comp, fill = cluster_comp)
   theme_panel() + theme(legend.position = "top", legend.text = element_text(size = 13))
 
 tab_cr <- table(tipo = comp$cluster_comp, nivel = comp$tramo[match(comp$iso3, paises$iso3)])
-write_csv(as.data.frame(tab_cr), here("output", "tablas", "composicion_vs_nivel.csv"))
-df_cr <- as.data.frame(tab_cr) %>% mutate(col_txt = ifelse(Freq > 25, color_fondo_claro, navy))
-p_cruce <- ggplot(df_cr, aes(nivel, tipo, fill = Freq)) +
+df_cr <- as.data.frame(tab_cr) %>% rename(paises = Freq)
+write_csv(df_cr, here("output", "tablas", "composicion_vs_nivel.csv"))
+df_cr <- df_cr %>% mutate(col_txt = ifelse(paises > 25, color_fondo_claro, navy))
+p_cruce <- ggplot(df_cr, aes(nivel, tipo, fill = paises)) +
   geom_tile(color = color_fondo_claro, linewidth = 1.5) +
-  geom_text(aes(label = Freq, color = col_txt), size = 9, family = fam, fontface = "bold") +
+  geom_text(aes(label = paises, color = col_txt), size = 9, family = fam, fontface = "bold") +
   scale_color_identity() + scale_fill_gradient(low = grilla, high = navy, guide = "none") +
   scale_x_discrete(labels = c("1" = "Tramo\nbajo", "2" = "Tramo\nmedio", "3" = "Tramo\nalto")) +
   scale_y_discrete(labels = setNames(str_wrap(nom_tipo, 12), names(nom_tipo))) +

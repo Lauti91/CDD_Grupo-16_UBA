@@ -25,14 +25,14 @@ paises_ing <- filter(paises, !sin_clasif)      # 122 países con clasificación 
 
 soc_es <- cargar_nombres_soc("es")
 # Matriz país x grupo SOC (exposición media)
-M <- panel %>% select(iso3, onet_soc_code, mean_exposure) %>%
+mat <- panel %>% select(iso3, onet_soc_code, mean_exposure) %>%
   pivot_wider(names_from = onet_soc_code, values_from = mean_exposure) %>%
   as.data.frame() %>% column_to_rownames("iso3") %>% as.matrix()
-soc_col <- str_sub(colnames(M), 1, 2)
-Ms <- sapply(split(seq_along(soc_col), soc_col), function(ix) rowMeans(M[, ix, drop = FALSE]))
+soc_col <- str_sub(colnames(mat), 1, 2)
+mat_soc <- sapply(split(seq_along(soc_col), soc_col), function(ix) rowMeans(mat[, ix, drop = FALSE]))
 
-soc_pais <- tibble(iso3 = rep(rownames(Ms), ncol(Ms)), soc_major = rep(colnames(Ms), each = nrow(Ms)),
-                   expo = as.vector(Ms)) %>% left_join(select(paises, iso3, tramo), by = "iso3")
+soc_pais <- tibble(iso3 = rep(rownames(mat_soc), ncol(mat_soc)), soc_major = rep(colnames(mat_soc), each = nrow(mat_soc)),
+                   expo = as.vector(mat_soc)) %>% left_join(select(paises, iso3, tramo), by = "iso3")
 brecha <- soc_pais %>% filter(tramo %in% c("1", "3")) %>%
   group_by(soc_major, tramo) %>% summarise(m = mean(expo), .groups = "drop") %>%
   pivot_wider(names_from = tramo, values_from = m, names_prefix = "t") %>%
@@ -90,21 +90,21 @@ cat(sprintf("Brecha: de %+.2f a %+.2f puntos | PBI mediano tramo bajo %.0f, alto
 # ---- Interacción tramo x grupo SOC: test de permutación (interaccion_tramo_soc.csv) ----
 # ANOVA tramo x grupo sobre la matriz 124 x 22; solo la interacción (el efecto tramo es circular)
 # Permuta las etiquetas de tramo entre países; sin normalidad ni varianzas iguales; test aproximado
-tramo_pais <- paises$tramo[match(rownames(Ms), paises$iso3)]
-stopifnot(!anyNA(tramo_pais), ncol(Ms) == 22)
-ss_interaccion <- function(Ms, cl) {
-  n     <- as.numeric(table(cl))
-  Mu    <- rowsum(Ms, cl) / n                     # medias tramo x grupo
-  fila  <- rowMeans(Mu)                           # media de cada tramo
-  col   <- colSums(Mu * n) / sum(n)               # media de cada grupo
-  ajust <- outer(fila, rep(1, ncol(Mu))) + outer(rep(1, nrow(Mu)), col - mean(Ms))
-  sum(n * (Mu - ajust)^2)
+tramo_pais <- paises$tramo[match(rownames(mat_soc), paises$iso3)]
+stopifnot(!anyNA(tramo_pais), ncol(mat_soc) == 22)
+ss_interaccion <- function(mat_soc, cl) {
+  n         <- as.numeric(table(cl))
+  medias_tg <- rowsum(mat_soc, cl) / n          # medias tramo x grupo
+  fila      <- rowMeans(medias_tg)              # media de cada tramo
+  col       <- colSums(medias_tg * n) / sum(n)  # media de cada grupo
+  ajust     <- outer(fila, rep(1, ncol(medias_tg))) + outer(rep(1, nrow(medias_tg)), col - mean(mat_soc))
+  sum(n * (medias_tg - ajust)^2)
 }
-ss_obs <- ss_interaccion(Ms, tramo_pais)
+ss_obs <- ss_interaccion(mat_soc, tramo_pais)
 set.seed(123)
-B_perm <- 3000
-ss_perm <- replicate(B_perm, ss_interaccion(Ms, sample(tramo_pais)))
+b_perm <- 3000
+ss_perm <- replicate(b_perm, ss_interaccion(mat_soc, sample(tramo_pais)))
 interaccion <- tibble(ss_interaccion_observada = ss_obs, ss_media_permutaciones = mean(ss_perm),
-                      permutaciones = B_perm, superan_la_observada = sum(ss_perm >= ss_obs),
-                      p_valor = (sum(ss_perm >= ss_obs) + 1) / (B_perm + 1))
+                      permutaciones = b_perm, superan_la_observada = sum(ss_perm >= ss_obs),
+                      p_valor = (sum(ss_perm >= ss_obs) + 1) / (b_perm + 1))
 write_csv(interaccion, here("output", "tablas", "interaccion_tramo_soc.csv")); print(as.data.frame(interaccion))

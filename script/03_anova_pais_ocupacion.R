@@ -23,23 +23,23 @@ paises <- read_csv(here("input", "paises_analisis.csv"), show_col_types = FALSE)
 
 # ---- ANOVA de dos factores sin réplica: eta cuadrado por sumas de cuadrados ----
 # Diseño balanceado 124 x 923, una observación por celda
-M <- panel %>% select(iso3, onet_soc_code, mean_exposure) %>%
+mat <- panel %>% select(iso3, onet_soc_code, mean_exposure) %>%
   pivot_wider(names_from = onet_soc_code, values_from = mean_exposure) %>%
   as.data.frame() %>% column_to_rownames("iso3") %>% as.matrix()
-stopifnot(!anyNA(M), nrow(M) == 124, ncol(M) == 923)
-gm <- mean(M); ss_tot <- sum((M - gm)^2)
-m_pais <- rowMeans(M); m_ocup <- colMeans(M); soc_col <- str_sub(colnames(M), 1, 2)
-eta_pais <- ncol(M) * sum((m_pais - gm)^2) / ss_tot
-eta_ocup <- nrow(M) * sum((m_ocup - gm)^2) / ss_tot
+stopifnot(!anyNA(mat), nrow(mat) == 124, ncol(mat) == 923)
+gm <- mean(mat); ss_tot <- sum((mat - gm)^2)
+m_pais <- rowMeans(mat); m_ocup <- colMeans(mat); soc_col <- str_sub(colnames(mat), 1, 2)
+eta_pais <- ncol(mat) * sum((m_pais - gm)^2) / ss_tot
+eta_ocup <- nrow(mat) * sum((m_ocup - gm)^2) / ss_tot
 eta_soc  <- sum(sapply(split(seq_along(soc_col), soc_col),
-                       function(ix) length(ix) * nrow(M) * (mean(M[, ix]) - gm)^2)) / ss_tot
-R <- M - outer(m_pais, rep(1, ncol(M))) - outer(rep(1, nrow(M)), m_ocup) + gm
-eta_res <- sum(R^2) / ss_tot
+                       function(ix) length(ix) * nrow(mat) * (mean(mat[, ix]) - gm)^2)) / ss_tot
+res_mat <- mat - outer(m_pais, rep(1, ncol(mat))) - outer(rep(1, nrow(mat)), m_ocup) + gm
+eta_res <- sum(res_mat^2) / ss_tot
 stopifnot(abs(eta_pais + eta_ocup + eta_res - 1) < 1e-8)
-r <- as.numeric(R); m2 <- mean((r - mean(r))^2)
+r <- as.numeric(res_mat); m2 <- mean((r - mean(r))^2)
 asimetria <- mean((r - mean(r))^3) / m2^1.5
 curtosis_exceso <- mean((r - mean(r))^4) / m2^2 - 3
-sd_res_pais <- apply(R, 1, sd); razon_sd <- max(sd_res_pais) / min(sd_res_pais)
+sd_res_pais <- apply(res_mat, 1, sd); razon_sd <- max(sd_res_pais) / min(sd_res_pais)
 set.seed(123); res_muestra <- sample(r, 5000)
 
 # ---- Eta cuadrado (eta2.png) ----
