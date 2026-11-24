@@ -110,7 +110,7 @@ atlas_ia_grupo16/
 - Con Git:
 
   ```bash
-  git clone https://github.com/Lauti91/CDD_Grupo-_UBA.git
+  git clone https://github.com/Lauti91/CDD_Grupo-16_UBA.git
   ```
 
 Se necesitan todas las carpetas (`raw/`, `auxiliar/`, `script/`, `utils/`), no solo los scripts.
